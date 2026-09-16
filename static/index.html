@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gedcom Viz</title>
+    <link rel="stylesheet" href="/static/style.css?v=14">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="app-container">
+        <aside id="sidebar">
+            <h1>Family Tree</h1>
+
+            <div class="control-group">
+                <label>Import Data</label>
+                <label for="gedcom-upload" class="file-upload-label">
+                    <span id="upload-text">Click to Upload GEDCOM</span>
+                    <input type="file" id="gedcom-upload" accept=".ged,.gedcom">
+                </label>
+            </div>
+
+            <div class="control-group" id="stats-panel" style="display: none;">
+                <label>Statistics</label>
+                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: var(--text-secondary);">Individuals</span>
+                        <span id="stat-indi" style="font-weight: 600;">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group" style="margin-top: auto;">
+                <button id="btn-reset" class="btn btn-secondary">Reset View</button>
+                <button id="btn-export" class="btn" disabled>Print / Export to PDF</button>
+                <button id="btn-map" class="btn" style="background-color: #2b8a3e; color: white;" disabled>Generate Map
+                    (UK)</button>
+            </div>
+        </aside>
+
+        <main id="viz-container">
+            <!-- Tooltip removed, strictly modal now -->
+        </main>
+    </div>
+
+    <!-- Life Summary Modal -->
+    <div id="summary-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button id="btn-close-modal" class="close-btn">&times;</button>
+            <div id="summary-content" class="parchment-doc">
+                <!-- Content injected via JS -->
+            </div>
+            <div class="modal-actions">
+                <button id="btn-print-summary" class="btn">Print Summary</button>
+                <button id="btn-export-pdf" class="btn" style="background-color: #aa4444; color: white;">Export A2
+                    PDF</button>
+                <button id="btn-export-zip" class="btn" style="background-color: #5544aa; color: white;">Export Gen.
+                    Series (ZIP)</button>
+                <button id="btn-export-image" class="btn btn-secondary">Export Image</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Controls (Only visible in Preview Mode) -->
+    <div id="export-preview-controls">
+        <div class="preview-actions">
+            <span>A3 Export Preview</span>
+            <div class="preview-buttons">
+                <button id="btn-cancel-preview" class="btn btn-secondary">Cancel</button>
+                <button id="btn-download-image" class="btn">Download High-Res PNG</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Container for A3 Render (Improved) -->
+    <!-- Positioned via CSS to guarantee render -->
+    <div id="export-a3-container">
+        <div id="export-a3-page">
+            <div class="a3-border-frame">
+                <!-- Header -->
+                <header class="a3-header">
+                    <h1 id="export-name">Person Name</h1>
+                    <div id="export-dates">1900 - 2000</div>
+                </header>
+
+                <!-- Timeline -->
+                <section class="a3-timeline-section">
+                    <div id="export-timeline-container"></div>
+                </section>
+
+                <!-- Body Grid -->
+                <main class="a3-body-grid">
+                    <!-- Column 1: Biography -->
+                    <div class="a3-col-bio">
+                        <h2 class="a3-section-title">Biography</h2>
+                        <div id="export-bio-content" class="bio-grid"></div>
+                    </div>
+
+                    <!-- Column 2: Siblings -->
+                    <div class="a3-col-sibs">
+                        <h2 class="a3-section-title">Siblings</h2>
+                        <div id="export-siblings-list" class="siblings-grid"></div>
+                    </div>
+                </main>
+
+                <!-- Footer -->
+                <footer class="a3-footer">
+                    Gedcom Viz - Family History Export
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="/static/script.js?v=18"></script>
+</body>
+
+</html>

@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-multipart
+reportlab
+geopy
+
+# Tests only
+pytest

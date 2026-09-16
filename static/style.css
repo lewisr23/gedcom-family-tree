@@ -1,0 +1,747 @@
+:root {
+    --bg-color: #f0dfbe;
+    /* Parchment */
+    --surface-color: #f0dfbe;
+    --text-primary: #1a1a1a;
+    --text-secondary: #4a4a4a;
+    --accent-color: #4a4a4a;
+    /* Dark gray/black for elegance */
+    --accent-hover: #000000;
+    --border-color: #d4c5a9;
+
+    --node-stroke: #000000;
+    --node-stroke-width: 3px;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    font-family: 'Cormorant SC', serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+#app-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* Sidebar - Left Panel */
+#sidebar {
+    width: 300px;
+    background-color: rgba(255, 255, 255, 0.4);
+    /* Glassy parchment */
+    border-right: 1px solid var(--node-stroke);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    z-index: 20;
+}
+
+h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+    border-bottom: 3px solid black;
+    padding-bottom: 0.5rem;
+}
+
+h1::before {
+    display: none;
+}
+
+.control-group label {
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+/* File Upload */
+.file-upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: transparent;
+    border: 3px dashed var(--node-stroke);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.file-upload-label span {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Buttons */
+.btn {
+    background-color: var(--text-primary);
+    color: var(--bg-color);
+    border: none;
+    padding: 12px 20px;
+    border-radius: 0;
+    font-size: 1rem;
+    font-family: 'Cormorant SC', serif;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.btn:hover {
+    background-color: black;
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 3px solid var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Visualization Area */
+#viz-container {
+    flex-grow: 1;
+    position: relative;
+    background-color: var(--bg-color);
+}
+
+/* Node Styling */
+.node-group {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.node-card {
+    fill: var(--bg-color);
+    /* Opaque parchment to hide lines behind */
+    stroke: var(--node-stroke);
+    stroke-width: var(--node-stroke-width);
+    filter: none;
+    /* Clean look */
+}
+
+/* Text inside node */
+.node-name {
+    font-family: 'Cormorant SC', serif;
+    font-weight: 700;
+    font-size: 18px;
+    /* Bigger */
+    fill: #000;
+    text-transform: uppercase;
+}
+
+.node-details {
+    font-family: 'Cormorant SC', serif;
+    font-weight: 600;
+    font-size: 14px;
+    fill: #333;
+}
+
+.link {
+    fill: none;
+    stroke: #000;
+    stroke-width: 2px;
+    stroke-linejoin: round;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: var(--bg-color);
+    padding: 40px;
+    border: 4px solid black;
+    width: 600px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.8);
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 2rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* Rich Summary Styles */
+/* Rich Summary Styles */
+.story-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--text-primary);
+    padding-bottom: 1rem;
+    column-span: all;
+    /* Span across columns in print */
+}
+
+.story-header h2 {
+    font-size: 3rem;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.story-subtitle {
+    font-size: 1.25rem;
+    font-style: italic;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+.story-timeline {
+    position: relative;
+    padding-left: 1rem;
+    /* Removed border-left from container to allow column breaking */
+}
+
+.story-event {
+    /* Use padding instead of margin for continuous border */
+    padding-bottom: 2rem;
+    padding-left: 2rem;
+    position: relative;
+    border-left: 3px solid var(--text-primary);
+    break-inside: avoid;
+    /* Prevent splitting event in columns */
+}
+
+.story-event:last-child {
+    border-left: 3px solid transparent;
+    /* Stop line at last item? Or keep for footer? */
+    /* Check if footer exists. The footer is outside timeline div. */
+    /* To look nice, last event line usually stops at the icon. */
+    border-image: linear-gradient(to bottom, var(--text-primary) 2rem, transparent 2rem) 1 100%;
+}
+
+.event-icon {
+    position: absolute;
+    /* Center on the border line. Border is at 0px inside padding-box? 
+       No, border is left edge. Padding starts after.
+       So left: -1rem (half width of 2rem) centers on 0?
+       Let's use calc. Left edge of border is at 0px of content-box shifted by border-width?
+       Standard relative positioning: 0 is left edge of padding.
+       Border is to the left of 0.
+       To center on border (width 3px):
+       Icon Width 2rem (32px). Center is 16px.
+       Border Center is -1.5px.
+       Left = -1.5px - 16px = -17.5px.
+       -17.5px = calc(-1rem - 1.5px).
+    */
+    left: calc(-1rem - 1.5px);
+    top: 0;
+    width: 2rem;
+    height: 2rem;
+    background: var(--bg-color);
+    border: 2px solid var(--text-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    z-index: 2;
+}
+
+.event-content h4 {
+    margin: 0;
+    font-size: 1.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.event-content p {
+    margin: 0.5rem 0;
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.story-footer {
+    text-align: center;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    column-span: all;
+}
+
+.modal-actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+    /* Center buttons */
+    gap: 1rem;
+}
+
+/* Collapse Toggle Button (circle with +/-) */
+.node-toggle circle {
+    fill: var(--bg-color);
+    stroke: black;
+    stroke-width: 2px;
+}
+
+.node-toggle text {
+    font-family: sans-serif;
+    /* Keep simple for +/- */
+    fill: black;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* Printing */
+@media print {
+    @page {
+        size: A3 landscape;
+        margin: 0mm;
+        /* Maximizing space, handling margins in body */
+    }
+
+    body {
+        /* Restore parchment background */
+        background-color: var(--bg-color) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-size: 16pt;
+    }
+
+    /* Hide common UI */
+    #sidebar,
+    #btn-close-modal,
+    .modal-actions {
+        display: none !important;
+    }
+
+    body.print-summary #app-container {
+        display: none !important;
+    }
+
+    /* Full Page Modal */
+    body.print-summary #summary-modal {
+        display: block !important;
+        position: absolute !important;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    body.print-summary #summary-modal .modal-content {
+        border: none !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        height: 297mm !important;
+        /* Full A3 Height */
+        max-height: 297mm !important;
+        padding: 10mm 15mm !important;
+        /* Margins for the print content */
+        box-sizing: border-box;
+        overflow: hidden !important;
+        background: transparent !important;
+    }
+
+    /* Column Container */
+    body.print-summary #summary-content {
+        height: 100%;
+        column-fill: auto;
+        /* Forces content to fill height before breaking */
+        column-width: 12cm;
+        column-gap: 4cm;
+        /* Wide gap to separate snakes */
+        column-rule: 1px dotted #888;
+        /* Subtle guide */
+    }
+
+    /* Content Scale & Layout */
+    .story-header {
+        column-span: all;
+        margin-bottom: 3rem;
+        border-bottom: 4px solid var(--text-primary);
+        padding-bottom: 2rem;
+        text-align: center;
+    }
+
+    .story-header h2 {
+        font-size: 4rem;
+        font-weight: 800;
+        margin: 0 0 1rem 0;
+    }
+
+    .story-subtitle {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Timeline Container - Needs padding to prevent icon clipping */
+    .story-timeline {
+        padding-left: 2.5rem;
+        /* Space for negative margin icons inside column */
+        border: none !important;
+    }
+
+    .story-event {
+        position: relative;
+        margin: 0;
+        padding-bottom: 3rem;
+        padding-left: 4.5rem;
+        /* Continuous line */
+        border-left: 5px solid var(--text-primary);
+        break-inside: avoid;
+    }
+
+    .event-icon {
+        width: 4rem;
+        height: 4rem;
+        font-size: 2rem;
+        border: 4px solid var(--text-primary);
+        border-radius: 50%;
+
+        /* Center on border */
+        /* Border: 5px. Center: 2.5px */
+        /* Icon: 4rem (64px). Center: 32px. */
+        /* Left: -32px - 2.5px = -34.5px */
+        left: calc(-2rem - 2.5px);
+
+        /* Icon Background - Must match paper to hide line behind it */
+        background-color: var(--bg-color);
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 5;
+    }
+
+    .event-icon svg {
+        width: 32px;
+        height: 32px;
+        transform: scale(1.6);
+    }
+
+    .event-content h4 {
+        font-size: 2rem;
+        margin: 0 0 0.5rem 0;
+        border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .event-content p {
+        font-size: 1.4rem;
+        line-height: 1.4;
+        margin: 0.5rem 0;
+    }
+
+    .story-footer {
+        font-size: 1.5rem;
+        padding-top: 2rem;
+        padding-bottom: 1rem;
+        /* Space at bottom */
+        margin-top: 2rem;
+        column-span: all;
+        border-top: 2px solid var(--text-primary);
+        text-align: center;
+    }
+
+    /* Print Tree Mode */
+    body.print-tree #summary-modal {
+        display: none !important;
+    }
+
+    body.print-tree #app-container {
+        display: block !important;
+    }
+}
+
+/* HTML Tooltip (if needed, but moving to on-canvas cards) */
+
+/* =========================================
+   A3 EXPORT STYLES (Sophisticated & Landscape)
+   2.0 - Grid System & Fixed Dimensions
+   ========================================= */
+
+/* Robust Container Positioning */
+#export-a3-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -9999;
+    /* Behind everything */
+    /* DO NOT USE DISPLAY NONE. IT KILLS D3 */
+    width: 4961px;
+    height: 3508px;
+    overflow: hidden;
+    transform-origin: top left;
+    pointer-events: none;
+    background: transparent;
+}
+
+/* PREVIEW MODE: Visible and Interactive */
+body.preview-active #export-a3-container {
+    z-index: 10000;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    /* Scale down to fit screen approx. 0.3 scale assumes 1080p screen */
+    transform: translate(-50%, -50%) scale(0.15);
+    /* Smaller scale for bigger A2 */
+    background: #555;
+    /* Dark backdrop for the container area */
+    box-shadow: 0 0 500px rgba(0, 0, 0, 0.9);
+    pointer-events: auto;
+    border: 10px solid #222;
+}
+
+#export-a3-page {
+    width: 4961px;
+    height: 3508px;
+    background-color: #f7e7ce;
+    /* Richer parchment */
+    color: #1a1a1a;
+    font-family: 'Cormorant SC', serif;
+    box-sizing: border-box;
+    padding: 80px;
+    /* Larger margins */
+    /* Ensure background is captured */
+    position: relative;
+}
+
+/* Decorative Frame */
+.a3-border-frame {
+    width: 100%;
+    height: 100%;
+    border: 16px double #1a1a1a;
+    /* Thicker border */
+    padding: 100px;
+    /* Larger inner padding */
+    /* Inner padding */
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    /* Header, Timeline, Body, Footer */
+    gap: 60px;
+    background:
+        radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.02) 100%);
+}
+
+/* 1. Header */
+.a3-header {
+    text-align: center;
+    border-bottom: 6px solid #1a1a1a;
+    padding-bottom: 40px;
+}
+
+#export-name {
+    font-size: 150px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #000;
+}
+
+#export-dates {
+    font-size: 70px;
+    font-family: 'Cormorant SC', serif;
+    font-style: italic;
+    color: #4a4a4a;
+    margin-top: 20px;
+}
+
+/* 2. Timeline */
+.a3-timeline-section {
+    width: 100%;
+    height: 450px;
+    border-bottom: 4px solid #1a1a1a;
+    position: relative;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+}
+
+#export-timeline-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* D3 Timeline overrides */
+.timeline-axis path,
+.timeline-axis line {
+    stroke: #000;
+    stroke-width: 4px;
+}
+
+.timeline-axis text {
+    font-size: 40px;
+    font-family: 'Cormorant SC', serif;
+    font-weight: 700;
+}
+
+
+/* 3. Body Grid */
+.a3-body-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* 50/50 split */
+    gap: 100px;
+    align-items: start;
+}
+
+.a3-section-title {
+    font-size: 80px;
+    border-bottom: 6px solid #1a1a1a;
+    margin-top: 0;
+    margin-bottom: 50px;
+    padding-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Bio Column */
+.a3-col-bio {}
+
+.bio-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 40px;
+    row-gap: 30px;
+    align-items: baseline;
+}
+
+.export-bio-label {
+    font-size: 50px;
+    font-weight: 700;
+    color: #000;
+    text-align: right;
+    min-width: 300px;
+}
+
+.export-bio-row {
+    display: contents;
+}
+
+/* Value text */
+.export-bio-value {
+    font-size: 50px;
+    color: #333;
+    font-weight: 500;
+}
+
+
+/* Sibling Column - Grid of Cards */
+.a3-col-sibs {}
+
+.siblings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* 2 Columns of cards */
+    gap: 40px;
+}
+
+.export-sibling-card {
+    background: rgba(255, 255, 255, 0.5);
+    border: 4px solid #1a1a1a;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.1);
+}
+
+.export-sibling-name {
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: #000;
+    line-height: 1.1;
+}
+
+.export-sibling-dates {
+    font-size: 36px;
+    font-style: italic;
+    color: #444;
+}
+
+/* 4. Footer */
+.a3-footer {
+    text-align: center;
+    font-size: 40px;
+    color: #666;
+    border-top: 2px solid #ccc;
+    padding-top: 40px;
+    font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* PREVIEW CONTROLS UI */
+#export-preview-controls {
+    display: none;
+    position: fixed;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20000;
+    background: #111;
+    color: #fff;
+    padding: 15px 30px;
+    border-radius: 50px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    font-family: 'Inter', sans-serif;
+    border: 2px solid #666;
+}
+
+body.preview-active #export-preview-controls {
+    display: block;
+}
+
+.preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.preview-actions span {
+    font-weight: 600;
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #f7e7ce;
+}
+
+.preview-buttons {
+    display: flex;
+    gap: 15px;
+}
