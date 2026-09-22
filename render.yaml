@@ -1,0 +1,28 @@
+# Render deployment. Push to GitHub, then New > Blueprint and point it here.
+services:
+  - type: web
+    name: gedcom-family-tree
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: COOKIE_SECURE
+        value: true
+      # Generated once by Render and kept across deploys, so sessions are not
+      # invalidated every time the service restarts.
+      - key: SESSION_SECRET
+        generateValue: true
+      # The free plan has no persistent disk, so the cache lives inside the
+      # container. A pre-warmed copy is baked into the image at build time,
+      # which is what stops the map being slow on every cold start.
+      - key: GEOCODE_CACHE_PATH
+        value: /app/app/services/geocode_cache.json
+      # Free instances have 512 MB. Measured: ~57 MB idle plus ~2 MB per held
+      # tree, so 50 sessions is roughly 160 MB with room for PDF generation.
+      - key: MAX_SESSIONS
+        value: 50

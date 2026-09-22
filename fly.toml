@@ -1,0 +1,40 @@
+# Fly.io deployment. `fly launch --no-deploy` then `fly deploy`.
+app = "gedcom-family-tree"
+primary_region = "lhr"
+
+[build]
+
+[env]
+  PORT = "8000"
+  COOKIE_SECURE = "true"
+  GEOCODE_CACHE_PATH = "/data/geocode_cache.json"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # Scales to zero when idle, which is what keeps the bill near nothing.
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 40
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/healthz"
+  timeout = "5s"
+
+# Keeps the geocode cache across deploys. Without it every redeploy starts
+# paying the one-lookup-per-second cost again from scratch.
+[[mounts]]
+  source = "geocache"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

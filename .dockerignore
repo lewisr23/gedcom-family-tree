@@ -1,0 +1,23 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.git/
+.gitignore
+tests/
+scripts/
+*.md
+Dockerfile
+.dockerignore
+
+# Never bake family data into an image
+*.ged
+gedcomexample.txt
+
+# Local artefacts
+test_*.pdf
+test_*.zip
+*_A2_Poster.pdf
+*_Generational_Series.zip
+Family_Map.pdf

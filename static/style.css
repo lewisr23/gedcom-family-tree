@@ -745,3 +745,35 @@ body.preview-active #export-preview-controls {
     display: flex;
     gap: 15px;
 }
+/* ---------------------------------------------------------------
+   Error banner and privacy note
+   --------------------------------------------------------------- */
+
+#error-banner {
+    position: fixed;
+    top: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3000;
+    max-width: min(600px, calc(100vw - 3rem));
+    padding: 0.9rem 1.4rem;
+    border-radius: 8px;
+    background: #7f1d1d;
+    color: #fff;
+    border: 1px solid #b91c1c;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    font-size: 0.95rem;
+    line-height: 1.45;
+    text-align: center;
+}
+
+.privacy-note {
+    margin: 0 0 0.9rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-secondary, #9aa0a6);
+}
+
+@media print {
+    #error-banner { display: none !important; }
+}

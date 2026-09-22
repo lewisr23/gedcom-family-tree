@@ -1,8 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 reportlab
 geopy
-
-# Tests only
-pytest

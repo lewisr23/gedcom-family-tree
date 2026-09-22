@@ -7,7 +7,7 @@ if not exist .venv (
 )
 
 echo Installing dependencies if needed...
-call .venv\Scripts\python.exe -m pip install -r requirements.txt || goto :error
+call .venv\Scripts\python.exe -m pip install -r requirements-dev.txt || goto :error
 
 echo Starting server...
 echo Open http://localhost:8000 in your browser.

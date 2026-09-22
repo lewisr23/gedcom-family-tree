@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gedcom Viz</title>
-    <link rel="stylesheet" href="/static/style.css?v=14">
+    <link rel="stylesheet" href="/static/style.css?v=15">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap"
@@ -21,7 +21,9 @@
                 <label>Import Data</label>
                 <label for="gedcom-upload" class="file-upload-label">
                     <span id="upload-text">Click to Upload GEDCOM</span>
-                    <input type="file" id="gedcom-upload" accept=".ged,.gedcom">
+                    <!-- .txt included because Ancestry exports often arrive with
+                         that extension, and the parser does not care either way. -->
+                    <input type="file" id="gedcom-upload" accept=".ged,.gedcom,.txt">
                 </label>
             </div>
 
@@ -36,6 +38,10 @@
             </div>
 
             <div class="control-group" style="margin-top: auto;">
+                <p class="privacy-note">
+                    Your file is processed in memory and discarded when you leave.
+                    Nothing is stored on the server.
+                </p>
                 <button id="btn-reset" class="btn btn-secondary">Reset View</button>
                 <button id="btn-export" class="btn" disabled>Print / Export to PDF</button>
                 <button id="btn-map" class="btn" style="background-color: #2b8a3e; color: white;" disabled>Generate Map
@@ -46,6 +52,9 @@
         <main id="viz-container">
             <!-- Tooltip removed, strictly modal now -->
         </main>
+
+        <!-- Server-side failures surface here rather than replacing the page -->
+        <div id="error-banner" role="alert" style="display: none;"></div>
     </div>
 
     <!-- Life Summary Modal -->
@@ -118,7 +127,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="/static/script.js?v=18"></script>
+    <script src="/static/script.js?v=19"></script>
 </body>
 
 </html>

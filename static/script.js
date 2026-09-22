@@ -20,6 +20,48 @@ const g = svg.append("g");
 let allNodes = {};
 let rootData = null;
 
+// Readable names for GEDCOM event tags. Kept in step with get_event_config in
+// app/services/pdf_generator.py so the exported PNG and the exported PDF label
+// the same event the same way.
+const EVENT_LABELS = {
+    BIRT: 'Born',
+    DEAT: 'Died',
+    MARR: 'Marriage',
+    RESI: 'Residence',
+    OCCU: 'Occupation',
+    EDUC: 'Education',
+    CHIL_BIRTH: 'Child Born',
+    BURI: 'Burial',
+    BAPM: 'Baptism',
+    CHR: 'Christening',
+    PROB: 'Probate',
+    CENS: 'Census',
+    IMMI: 'Immigration',
+    NATU: 'Naturalisation',
+    EVEN: 'Event',
+    _MILT: 'Military'
+};
+
+// Everything a GEDCOM contains is untrusted text. Names, places and notes all
+// end up inside innerHTML templates below, and a file emailed round the family
+// is exactly the kind of thing nobody inspects first, so escape on the way in.
+const HTML_ESCAPES = {
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+};
+
+function esc(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, c => HTML_ESCAPES[c]);
+}
+
+
+function eventLabel(type) {
+    if (EVENT_LABELS[type]) return EVENT_LABELS[type];
+    // Unknown tag: title case it rather than showing a bare code.
+    return String(type || '').replace(/^_/, '').toLowerCase()
+        .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // Hierarchy Builder (Standard Ancestors)
 function buildAncestorHierarchy(personId, depth = 0) {
     if (depth > 20) return null;
@@ -285,8 +327,8 @@ function update(source) {
         .style("align-items", "center")
         .style("text-align", "center")
         .html(d => `
-            <div class="node-name-div" style="font-weight: 700; font-size: 16px; color: black">${d.data.name.replace(/\//g, '').trim()}</div>
-            <div class="node-details-div" style="font-weight: 600; font-size: 14px; color: black">${d.data.lifeSpan || ""}</div>
+            <div class="node-name-div" style="font-weight: 700; font-size: 16px; color: black">${esc(d.data.name.replace(/\//g, '').trim())}</div>
+            <div class="node-details-div" style="font-weight: 600; font-size: 14px; color: black">${esc(d.data.lifeSpan || "")}</div>
         `);
 
     // 3. Ancestor Toggle (Top)
@@ -413,8 +455,8 @@ function showLifeSummary(person) {
     }
 
     let html = `<div class="story-header">
-        <h2>${name}</h2>
-        <div class="story-subtitle">${person.lifeSpan || ""} ${ageStr}</div>
+        <h2>${esc(name)}</h2>
+        <div class="story-subtitle">${esc(person.lifeSpan || "")} ${ageStr}</div>
     </div>`;
 
     html += `<div class="story-timeline">`;
@@ -443,8 +485,8 @@ function showLifeSummary(person) {
                 <div class="event-icon">${icons.tree}</div>
                 <div class="event-content">
                     <h4>Legay & Lineage</h4>
-                    ${dadName ? `<p>Father: <strong>${dadName}</strong></p>` : ''}
-                    ${momName ? `<p>Mother: <strong>${momName}</strong></p>` : ''}
+                    ${dadName ? `<p>Father: <strong>${esc(dadName)}</strong></p>` : ''}
+                    ${momName ? `<p>Mother: <strong>${esc(momName)}</strong></p>` : ''}
                 </div>
             </div>`;
         }
@@ -456,14 +498,15 @@ function showLifeSummary(person) {
         let title = evt.type;
         let details = [];
 
-        if (evt.date) details.push(`<strong>Date:</strong> ${evt.date}`);
-        if (evt.place) details.push(`<strong>Place:</strong> ${evt.place}`);
-        if (evt.value && evt.type !== 'MARR' && evt.type !== 'CHIL_BIRTH') details.push(`<strong>Details:</strong> ${evt.value}`);
+        if (evt.date) details.push(`<strong>Date:</strong> ${esc(evt.date)}`);
+        if (evt.place) details.push(`<strong>Place:</strong> ${esc(evt.place)}`);
+        if (evt.value && evt.type !== 'MARR' && evt.type !== 'CHIL_BIRTH') details.push(`<strong>Details:</strong> ${esc(evt.value)}`);
         // For Marriage/Child, value is the title summary usually, render it cleanly
-        if (evt.type === 'MARR' || evt.type === 'CHIL_BIRTH') details.push(`<p>${evt.value}</p>`);
+        if (evt.type === 'MARR' || evt.type === 'CHIL_BIRTH') details.push(`<p>${esc(evt.value)}</p>`);
 
         if (evt.notes && evt.notes.length > 0) {
-            details.push(`<div class="event-notes"><em>Notes:</em><br> ${evt.notes.join('<br>')}</div>`);
+            // Escape each note, then join: the <br> is ours, the notes are not.
+            details.push(`<div class="event-notes"><em>Notes:</em><br> ${evt.notes.map(esc).join('<br>')}</div>`);
         }
 
         switch (evt.type) {
@@ -474,13 +517,15 @@ function showLifeSummary(person) {
             case 'EDUC': icon = icons.cap; title = "Education"; break;
             case 'MARR': icon = icons.heart; title = "Marriage"; break;
             case 'CHIL_BIRTH': icon = icons.baby; title = "Child Born"; break;
-            default: icon = icons.flag; title = evt.type;
+            // Burial, baptism, census, probate and the rest land here; show a
+            // readable name rather than the raw tag.
+            default: icon = icons.flag; title = eventLabel(evt.type);
         }
 
         html += `<div class="story-event">
             <div class="event-icon">${icon}</div>
             <div class="event-content">
-                <h4>${title}</h4>
+                <h4>${esc(title)}</h4>
                 ${details.map(d => `<p>${d}</p>`).join('')}
             </div>
         </div>`;
@@ -515,6 +560,88 @@ document.getElementById('btn-print-summary').addEventListener('click', () => {
     window.print();
 });
 
+
+// =========================================
+// SERVER COMMUNICATION
+// =========================================
+
+// Every export used to be a plain navigation (window.location.href). That works
+// until the server answers with an error, at which point the browser replaces
+// the app with a page of raw JSON. Fetching the file instead lets us keep the
+// page and say what went wrong.
+
+function showError(message) {
+    const banner = document.getElementById('error-banner');
+    if (!banner) { alert(message); return; }
+    banner.textContent = message;
+    banner.style.display = 'block';
+    clearTimeout(showError._timer);
+    showError._timer = setTimeout(() => { banner.style.display = 'none'; }, 8000);
+}
+
+async function describeFailure(response) {
+    // FastAPI sends {"detail": "..."} for HTTPException.
+    try {
+        const body = await response.json();
+        if (body && body.detail) return body.detail;
+    } catch (e) { /* not JSON, fall through */ }
+    if (response.status === 429) return "Too many requests. Please wait a moment.";
+    return `Something went wrong (error ${response.status}).`;
+}
+
+function filenameFrom(response, fallback) {
+    const disposition = response.headers.get('Content-Disposition') || '';
+    // Prefer the RFC 6266 UTF-8 form, which keeps accents intact.
+    const utf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8) { try { return decodeURIComponent(utf8[1]); } catch (e) { /* ignore */ } }
+    const plain = disposition.match(/filename="([^"]+)"/i);
+    return plain ? plain[1] : fallback;
+}
+
+async function downloadFromApi(url, fallbackName, btn, busyText) {
+    const oldText = btn ? btn.textContent : null;
+    if (btn) { btn.textContent = busyText; btn.disabled = true; }
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const message = await describeFailure(response);
+            showError(message);
+            if (response.status === 409) sessionExpired();
+            return false;
+        }
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filenameFrom(response, fallbackName);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objectUrl);
+        return true;
+    } catch (err) {
+        console.error(err);
+        showError("Could not reach the server. Is it still running?");
+        return false;
+    } finally {
+        if (btn) { btn.textContent = oldText; btn.disabled = false; }
+    }
+}
+
+function sessionExpired() {
+    // The tree lives in memory on the server and is dropped when a session goes
+    // idle, so recovery means uploading again.
+    allNodes = {};
+    rootData = null;
+    g.selectAll("*").remove();
+    document.getElementById('upload-text').textContent = "Click to Upload GEDCOM";
+    document.getElementById('stats-panel').style.display = 'none';
+    document.getElementById('btn-export').disabled = true;
+    document.getElementById('btn-map').disabled = true;
+    document.getElementById('summary-modal').style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
 // Upload Handler
 document.getElementById('gedcom-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -528,6 +655,11 @@ document.getElementById('gedcom-upload').addEventListener('change', async (e) =>
 
     try {
         const response = await fetch('/upload', { method: 'POST', body: formData });
+        if (!response.ok) {
+            showError(await describeFailure(response));
+            label.textContent = "Click to Upload GEDCOM";
+            return;
+        }
         const data = await response.json();
 
         allNodes = {};
@@ -551,7 +683,8 @@ document.getElementById('gedcom-upload').addEventListener('change', async (e) =>
         }
     } catch (err) {
         console.error(err);
-        label.textContent = "Error!";
+        showError("Could not reach the server. Is it still running?");
+        label.textContent = "Click to Upload GEDCOM";
     }
 });
 
@@ -697,7 +830,7 @@ async function generateA3Export(person) {
                 .style("font-weight", "bold")
                 .style("font-family", "'Cormorant SC', serif")
                 .attr("dy", isUp ? "0" : "0.8em")
-                .text(d.type === 'MARR' ? 'Marriage' : (d.type === 'BIRT' ? 'Born' : (d.type === 'DEAT' ? 'Died' : d.type)));
+                .text(eventLabel(d.type));
 
             // Details/Date (Smaller)
             // Use date string if available
@@ -716,9 +849,9 @@ async function generateA3Export(person) {
     // Bio Column
     const bioContainer = document.getElementById('export-bio-content');
     bioContainer.innerHTML = `
-        <div class="export-bio-row"><span class="export-bio-label">Sex:</span><span class="export-bio-value">${person.sex}</span></div>
-        <div class="export-bio-row"><span class="export-bio-label">Birth:</span><span class="export-bio-value">${person.birthDate || "?"}</span></div>
-        <div class="export-bio-row"><span class="export-bio-label">Death:</span><span class="export-bio-value">${person.deathDate || "?"}</span></div>
+        <div class="export-bio-row"><span class="export-bio-label">Sex:</span><span class="export-bio-value">${esc(person.sex)}</span></div>
+        <div class="export-bio-row"><span class="export-bio-label">Birth:</span><span class="export-bio-value">${esc(person.birthDate || "?")}</span></div>
+        <div class="export-bio-row"><span class="export-bio-label">Death:</span><span class="export-bio-value">${esc(person.deathDate || "?")}</span></div>
     `;
 
     // Siblings
@@ -730,8 +863,8 @@ async function generateA3Export(person) {
             if (sib) {
                 sibContainer.innerHTML += `
                 <div class="export-sibling-card">
-                    <div class="export-sibling-name">${sib.name.replace(/\//g, '')}</div>
-                    <div class="export-sibling-dates">${sib.lifeSpan || ""}</div>
+                    <div class="export-sibling-name">${esc(sib.name.replace(/\//g, ''))}</div>
+                    <div class="export-sibling-dates">${esc(sib.lifeSpan || "")}</div>
                 </div>`;
             }
         });
@@ -785,76 +918,36 @@ document.getElementById('btn-download-image').addEventListener('click', () => {
 
 document.getElementById('btn-export-pdf').addEventListener('click', () => {
     if (!currentSummaryPerson || !currentSummaryPerson.id) {
-        alert("No person selected.");
+        showError("No person selected.");
         return;
     }
-    const btn = document.getElementById('btn-export-pdf');
-    const oldText = btn.textContent;
-    btn.textContent = "Generating PDF...";
-    btn.disabled = true;
-
-    // Trigger download
-    window.location.href = `/api/export/pdf/${currentSummaryPerson.id}`;
-
-    // Reset after delay
-    setTimeout(() => {
-        btn.textContent = oldText;
-        btn.disabled = false;
-    }, 3000);
+    const safe = currentSummaryPerson.name.replace(/\//g, '').trim();
+    downloadFromApi(
+        `/api/export/pdf/${encodeURIComponent(currentSummaryPerson.id)}`,
+        `${safe}_A2_Poster.pdf`,
+        document.getElementById('btn-export-pdf'),
+        "Generating PDF...");
 });
 
 document.getElementById('btn-map').addEventListener('click', () => {
-    const btn = document.getElementById('btn-map');
-    const oldText = btn.textContent;
-    btn.textContent = "Processing... (this may take time)";
-    btn.disabled = true;
-
-    // 60s timeout usually enough for most trees, gives user feedback
-    fetch('/api/export/map')
-        .then(response => {
-            if (!response.ok) throw new Error("Server Error");
-            return response.blob();
-        })
-        .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = "Family_Map.pdf";
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-
-            btn.textContent = oldText;
-            btn.disabled = false;
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Error generating map. Check console/logs.");
-            btn.textContent = "Error!";
-            setTimeout(() => {
-                btn.textContent = oldText;
-                btn.disabled = false;
-            }, 3000);
-        });
+    // Geocoding is rate limited to one lookup per second, so a first run on a
+    // large tree genuinely takes minutes. Results are cached server side.
+    downloadFromApi(
+        '/api/export/map',
+        'Family_Map.pdf',
+        document.getElementById('btn-map'),
+        "Mapping... (may take a while)");
 });
 
-// NEW BUTTON LISTENER FOR GENERATIONAL ZIP
 document.getElementById('btn-export-zip').addEventListener('click', () => {
     if (!currentSummaryPerson || !currentSummaryPerson.id) {
-        alert("No person selected.");
+        showError("No person selected.");
         return;
     }
-    const btn = document.getElementById('btn-export-zip');
-    const oldText = btn.textContent;
-    btn.textContent = "Zipping Series...";
-    btn.disabled = true;
-
-    // Trigger download of ZIP
-    window.location.href = `/api/export/generations/${currentSummaryPerson.id}`;
-
-    // Reset after delay
-    setTimeout(() => {
-        btn.textContent = oldText;
-        btn.disabled = false;
-    }, 4000);
+    const safe = currentSummaryPerson.name.replace(/\//g, '').trim();
+    downloadFromApi(
+        `/api/export/generations/${encodeURIComponent(currentSummaryPerson.id)}`,
+        `${safe}_Generational_Series.zip`,
+        document.getElementById('btn-export-zip'),
+        "Zipping Series...");
 });
