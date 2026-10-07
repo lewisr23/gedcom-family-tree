@@ -20,8 +20,16 @@ ACCENT_COLOR = colors.HexColor('#333333')
 FONT_REG = "Helvetica"
 FONT_BOLD = "Helvetica-Bold"
 
+# Resolved against this file rather than the working directory. A relative
+# path happens to work from the repo root and from the container's /app, but it
+# fails silently anywhere else: the fonts just do not register and every poster
+# quietly comes out in Helvetica instead.
+FONT_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'static', 'fonts')
+
 try:
-    base_font_path = "static/fonts"
+    base_font_path = FONT_DIR
     if os.path.exists(os.path.join(base_font_path, "CormorantSC-Regular.ttf")):
         pdfmetrics.registerFont(TTFont('Cormorant-Regular', os.path.join(base_font_path, "CormorantSC-Regular.ttf")))
         pdfmetrics.registerFont(TTFont('Cormorant-Bold', os.path.join(base_font_path, "CormorantSC-Bold.ttf")))

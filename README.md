@@ -41,7 +41,7 @@ poster out of their family history without reading a manual.
 | Frontend | Vanilla JavaScript, D3.js, no build step |
 | Geocoding | geopy against Nominatim, cached to disk |
 | GEDCOM parsing | Hand written, no dependency |
-| Tests | pytest, 115 tests, no network access |
+| Tests | pytest, 127 tests, no network access |
 | Deployment | Docker, Render |
 
 ## Engineering notes
@@ -140,9 +140,9 @@ Creates a `.venv`, installs into it, and serves on http://localhost:8000.
 .\.venv\Scripts\python.exe -m pytest tests\ -q
 ```
 
-115 tests covering parsing against a real Ancestry export, export correctness,
-session isolation, rate limiting, place name normalisation and what the shipped
-geocode cache is allowed to contain. The suite stubs the geocoder and never
+127 tests covering parsing against a real Ancestry export, export correctness,
+session isolation, re-rooting, rate limiting, place name normalisation and what
+the shipped geocode cache is allowed to contain. The suite stubs the geocoder and never
 touches the network.
 
 Test dependencies live in `requirements-dev.txt`, which includes
@@ -176,7 +176,9 @@ it, expired sessions get a prompt to re-upload rather than a broken page.
 
 - Single process. Sessions live in memory, so scaling out needs Redis behind
   `app/sessions.py`.
-- The root person is whichever individual appears first in the file. Relationship
-  labels are stated relative to that person by name rather than assuming the
-  reader is in the tree.
+- The tree opens on whichever individual appears first in the file, which is
+  whoever the exporting software wrote first. Search for anyone and pick them,
+  or use "Start Tree From Here" on their summary, to redraw from them.
+  Relationship labels are stated relative to the current root by name rather
+  than assuming the reader is in the tree.
 - The map covers Great Britain and Ireland only.

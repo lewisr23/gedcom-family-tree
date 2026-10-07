@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional
+import html
 import re
 
 class GedcomParser:
@@ -49,6 +50,15 @@ class GedcomParser:
             else:
                 continue
 
+            # Ancestry writes HTML entities into anything it sourced from the
+            # web: an unknown surname arrives as "&#00063;" and an apostrophe as
+            # "&#39;", which then render literally on screen and on the poster.
+            # Decode once here, so the screen, the PDFs and the search all see
+            # the character. Safe because every HTML insertion point in the
+            # frontend escapes on output.
+            if '&' in value:
+                value = html.unescape(value)
+
             # CONC/CONT continue the last text value written, so they run before
             # any of the scoping rules below.
             if tag in ('CONC', 'CONT'):
@@ -77,6 +87,7 @@ class GedcomParser:
                             'id': xref_id,
                             'type': 'INDI',
                             'name': 'Unknown',
+                            'surname': '',
                             'sex': 'U',
                             'birth': '', 'death': '',
                             'birthPlace': '', 'deathPlace': '',
@@ -102,6 +113,13 @@ class GedcomParser:
                 # Handle INDI
                 if current_record['type'] == 'INDI':
                     if tag == 'NAME' and level == 1:
+                        # GEDCOM delimits the surname inside the name: "John
+                        # /Smith/". Capture it before stripping the slashes,
+                        # because afterwards there is nothing left to tell a
+                        # surname from a given name, and guessing by taking the
+                        # last word gets "van der Berg" and suffixes wrong.
+                        surname = re.search(r'/([^/]*)/', value)
+                        current_record['surname'] =                             surname.group(1).strip() if surname else ''
                         current_record['name'] = value.replace('/', '').strip()
                     elif tag == 'SEX' and level == 1:
                         current_record['sex'] = value.strip()
@@ -346,6 +364,7 @@ class GedcomParser:
             nodes.append({
                 'id': indi_id,
                 'name': indi.get('name', 'Unknown'),
+                'surname': indi.get('surname', ''),
                 'sex': indi.get('sex', 'U'),
                 'lifeSpan': life_span,
                 'type': 'person',

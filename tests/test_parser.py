@@ -152,3 +152,69 @@ def test_deep_ancestors_get_a_real_relationship_label(parsed):
     # The old depth cap of 5 returned an empty string past great-great.
     assert any(l.endswith('x Great-Grandfather') for l in labels)
     assert 'Great-Great-Grandfather' not in labels, "should use the Nx wording"
+
+
+# --- surnames and web escapes ------------------------------------------------
+#
+# GEDCOM delimits the surname inside the name field ("John /Smith/"). The
+# parser used to strip those slashes immediately, which made the name readable
+# and threw away the only thing marking which word was the family name.
+
+def test_surname_is_captured_separately_from_the_display_name():
+    from app.gedcom_parser import GedcomParser
+    parser = GedcomParser()
+    parser.parse("0 HEAD\n0 @I1@ INDI\n1 NAME John /Smith/\n0 TRLR\n")
+
+    person = parser.graph_data['nodes'][0]
+    assert person['name'] == 'John Smith', 'display name should lose the slashes'
+    assert person['surname'] == 'Smith'
+
+
+def test_surname_survives_a_multi_word_family_name():
+    """Taking the last word instead would give "Berg"."""
+    from app.gedcom_parser import GedcomParser
+    parser = GedcomParser()
+    parser.parse("0 HEAD\n0 @I1@ INDI\n1 NAME Pieter /van der Berg/\n0 TRLR\n")
+
+    assert parser.graph_data['nodes'][0]['surname'] == 'van der Berg'
+
+
+def test_name_without_delimiters_leaves_the_surname_empty():
+    from app.gedcom_parser import GedcomParser
+    parser = GedcomParser()
+    parser.parse("0 HEAD\n0 @I1@ INDI\n1 NAME Madonna\n0 TRLR\n")
+
+    person = parser.graph_data['nodes'][0]
+    assert person['name'] == 'Madonna'
+    assert person['surname'] == ''
+
+
+def test_html_entities_from_ancestry_are_decoded():
+    """The real export writes an unknown surname as "&#00063;".
+
+    Left encoded it renders literally on screen and on the printed poster.
+    """
+    from app.gedcom_parser import GedcomParser
+    parser = GedcomParser()
+    parser.parse("0 HEAD\n0 @I1@ INDI\n1 NAME Ann /&#00063;/\n0 TRLR\n")
+
+    person = parser.graph_data['nodes'][0]
+    assert person['name'] == 'Ann ?'
+    assert person['surname'] == '?'
+
+
+def test_entity_decoding_reaches_places_and_notes():
+    from app.gedcom_parser import GedcomParser
+    parser = GedcomParser()
+    parser.parse(
+        "0 HEAD\n0 @I1@ INDI\n1 NAME Pat /O&#39;Brien/\n"
+        "1 BIRT\n2 DATE 1900\n2 PLAC St Mary&#39;s, Dublin\n0 TRLR\n")
+
+    person = parser.graph_data['nodes'][0]
+    assert person['surname'] == "O'Brien"
+    assert person['birthPlace'] == "St Mary's, Dublin"
+
+
+def test_no_html_entities_survive_the_real_export(parsed):
+    for node in parsed.graph_data['nodes']:
+        assert '&#' not in node['name'], node['name']

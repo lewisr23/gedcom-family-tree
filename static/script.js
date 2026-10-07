@@ -1,6 +1,7 @@
 const container = document.getElementById('viz-container');
-const width = container.clientWidth;
-const height = container.clientHeight;
+// No cached width/height here on purpose: they were read once at load and went
+// stale the moment the window was resized. Anything needing the size reads the
+// container at the point of use.
 
 // Constants for Node Design (Vertical, Upwards)
 const cardWidth = 200;
@@ -8,17 +9,39 @@ const cardHeight = 90;
 const nodeSpacingX = 220; // Increased to prevent overlap with neighbor branches
 const nodeSpacingY = 150;
 
+// Hoisted rather than created inline, so Reset View can drive the same
+// behaviour the mouse wheel does instead of a throwaway second one.
+const zoomBehavior = d3.zoom().scaleExtent([0.1, 3]).on("zoom", (event) => {
+    g.attr("transform", event.transform);
+});
+
 const svg = d3.select("#viz-container").append("svg")
     .attr("width", "100%")
     .attr("height", "100%")
-    .call(d3.zoom().scaleExtent([0.1, 3]).on("zoom", (event) => {
-        g.attr("transform", event.transform);
-    }));
+    .call(zoomBehavior);
+
+const INITIAL_SCALE = 0.85;
+
+function initialTransform() {
+    // Read the container live rather than trusting the width and height
+    // captured at load: the chart grows upwards from the root, so after a
+    // window resize the stale numbers park the root off screen.
+    return d3.zoomIdentity
+        .translate(container.clientWidth / 2, container.clientHeight - 100)
+        .scale(INITIAL_SCALE);
+}
+
+function resetView() {
+    svg.transition().duration(400).call(zoomBehavior.transform, initialTransform());
+}
 
 const g = svg.append("g");
 
 let allNodes = {};
 let rootData = null;
+// Who the chart is currently drawn from. Starts as the first person in the
+// file and changes when someone re-roots it.
+let currentRootId = null;
 
 // Readable names for GEDCOM event tags. Kept in step with get_event_config in
 // app/services/pdf_generator.py so the exported PNG and the exported PDF label
@@ -298,7 +321,7 @@ function update(source) {
 
     // 1. Card Background (Uniform styling)
     nodes.append("rect")
-        .attr("class", "node-card")
+        .attr("class", d => d.data.id === currentRootId ? "node-card is-root" : "node-card")
         .attr("x", -cardWidth / 2)
         .attr("y", -cardHeight / 2)
         .attr("width", cardWidth)
@@ -392,9 +415,7 @@ function update(source) {
     });
 
     if (!source) {
-        const initialY = height - 100;
-        const initialX = width / 2;
-        svg.call(d3.zoom().transform, d3.zoomIdentity.translate(initialX, initialY).scale(0.85));
+        svg.call(zoomBehavior.transform, initialTransform());
     }
 }
 
@@ -484,7 +505,7 @@ function showLifeSummary(person) {
             html += `<div class="story-event">
                 <div class="event-icon">${icons.tree}</div>
                 <div class="event-content">
-                    <h4>Legay & Lineage</h4>
+                    <h4>Legacy & Lineage</h4>
                     ${dadName ? `<p>Father: <strong>${esc(dadName)}</strong></p>` : ''}
                     ${momName ? `<p>Mother: <strong>${esc(momName)}</strong></p>` : ''}
                 </div>
@@ -633,11 +654,16 @@ function sessionExpired() {
     // idle, so recovery means uploading again.
     allNodes = {};
     rootData = null;
+    currentRootId = null;
+    searchIndex = [];
+    clearSearch();
     g.selectAll("*").remove();
     document.getElementById('upload-text').textContent = "Click to Upload GEDCOM";
+    document.getElementById('search-panel').style.display = 'none';
     document.getElementById('stats-panel').style.display = 'none';
     document.getElementById('btn-export').disabled = true;
     document.getElementById('btn-map').disabled = true;
+    document.getElementById('btn-timemap').disabled = true;
     document.getElementById('summary-modal').style.display = 'none';
     document.body.classList.remove('modal-open');
 }
@@ -671,15 +697,19 @@ document.getElementById('gedcom-upload').addEventListener('change', async (e) =>
         const rootId = firstPerson ? firstPerson.id : null;
 
         if (rootId) {
+            currentRootId = rootId;
             rootData = buildAncestorHierarchy(rootId);
             update(null); // Initial render
 
             label.textContent = "Upload New File";
+            buildSearchIndex();
+            renderStats(data);
+            updateRootNote();
+            document.getElementById('search-panel').style.display = 'block';
             document.getElementById('stats-panel').style.display = 'block';
-            document.getElementById('stat-indi').textContent = Object.keys(allNodes).length;
-            document.getElementById('stat-indi').textContent = Object.keys(allNodes).length;
             document.getElementById('btn-export').disabled = false;
             document.getElementById('btn-map').disabled = false;
+            document.getElementById('btn-timemap').disabled = false;
         }
     } catch (err) {
         console.error(err);
@@ -689,7 +719,7 @@ document.getElementById('gedcom-upload').addEventListener('change', async (e) =>
 });
 
 document.getElementById('btn-reset').addEventListener('click', () => {
-    if (rootData) update(null);
+    if (rootData) resetView();
 });
 
 // =========================================
@@ -950,4 +980,281 @@ document.getElementById('btn-export-zip').addEventListener('click', () => {
         `${safe}_Generational_Series.zip`,
         document.getElementById('btn-export-zip'),
         "Zipping Series...");
+});
+
+
+// =========================================
+// FIND A PERSON
+// =========================================
+
+// Without this the only way to reach anyone is to expand the chart outwards
+// from whoever the file happened to list first, which on a 144 person tree
+// means a lot of clicking to find a name you already know.
+
+const MAX_RESULTS = 12;
+
+let searchIndex = [];
+let searchSelection = -1;
+
+const searchInput = document.getElementById('person-search');
+const searchResults = document.getElementById('search-results');
+const searchHint = document.getElementById('search-hint');
+const searchClear = document.getElementById('btn-search-clear');
+
+// GEDCOM writes names as "John /Smith/", with the surname delimited.
+function cleanName(raw) {
+    return String(raw || '').replace(/\//g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function buildSearchIndex() {
+    searchIndex = Object.values(allNodes).map(p => {
+        const name = cleanName(p.name) || 'Unknown';
+        return {
+            id: p.id,
+            name,
+            haystack: name.toLowerCase(),
+            lifeSpan: p.lifeSpan || '',
+            birthPlace: p.birthPlace || ''
+        };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Escape around the matched run rather than escaping the whole string and then
+// inserting tags into it, which would mean matching offsets against text that
+// has changed length.
+function highlight(name, at, length) {
+    if (at < 0) return esc(name);
+    return esc(name.slice(0, at)) +
+        '<mark>' + esc(name.slice(at, at + length)) + '</mark>' +
+        esc(name.slice(at + length));
+}
+
+function searchFor(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return { hits: [], total: 0, q };
+
+    const hits = [];
+    for (const entry of searchIndex) {
+        const at = entry.haystack.indexOf(q);
+        if (at === -1) continue;
+        // A match at the start of the string or of any word beats one buried
+        // mid-word, so typing "smi" surfaces Smith before Nasmith.
+        const atWordStart = at === 0 || entry.haystack[at - 1] === ' ';
+        hits.push({ entry, at, rank: at === 0 ? 0 : (atWordStart ? 1 : 2) });
+    }
+
+    hits.sort((a, b) => a.rank - b.rank || a.at - b.at ||
+        a.entry.name.localeCompare(b.entry.name));
+    return { hits: hits.slice(0, MAX_RESULTS), total: hits.length, q };
+}
+
+function renderSearchResults(query) {
+    searchSelection = -1;
+    searchClear.style.display = query ? 'block' : 'none';
+
+    if (!query.trim()) {
+        searchResults.innerHTML = '';
+        searchHint.textContent = '';
+        searchInput.setAttribute('aria-expanded', 'false');
+        return;
+    }
+
+    const { hits, total, q } = searchFor(query);
+
+    if (!hits.length) {
+        searchResults.innerHTML = '';
+        searchHint.textContent = 'No one by that name in this file.';
+        searchInput.setAttribute('aria-expanded', 'false');
+        return;
+    }
+
+    searchResults.innerHTML = hits.map(({ entry, at }) => {
+        const meta = [entry.lifeSpan, entry.birthPlace].filter(Boolean).join(' · ');
+        return '<li role="option" data-id="' + esc(entry.id) + '" aria-selected="false">' +
+            '<span class="result-name">' + highlight(entry.name, at, q.length) + '</span>' +
+            (meta ? '<span class="result-meta">' + esc(meta) + '</span>' : '') +
+            '</li>';
+    }).join('');
+
+    searchHint.textContent = total > hits.length
+        ? 'Showing ' + hits.length + ' of ' + total + ' matches. Keep typing to narrow it.'
+        : 'Choosing someone redraws the chart from them.';
+    searchInput.setAttribute('aria-expanded', 'true');
+}
+
+function searchOptions() {
+    return Array.from(searchResults.querySelectorAll('li'));
+}
+
+function moveSearchSelection(delta) {
+    const options = searchOptions();
+    if (!options.length) return;
+
+    searchSelection = (searchSelection + delta + options.length) % options.length;
+    options.forEach((li, i) => {
+        const on = i === searchSelection;
+        li.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on) li.scrollIntoView({ block: 'nearest' });
+    });
+}
+
+function clearSearch() {
+    if (!searchInput) return;
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+    searchHint.textContent = '';
+    searchClear.style.display = 'none';
+    searchSelection = -1;
+    searchInput.setAttribute('aria-expanded', 'false');
+}
+
+searchInput.addEventListener('input', (e) => renderSearchResults(e.target.value));
+
+searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveSearchSelection(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveSearchSelection(-1); }
+    else if (e.key === 'Escape') { clearSearch(); }
+    else if (e.key === 'Enter') {
+        e.preventDefault();
+        const options = searchOptions();
+        // Enter with nothing highlighted takes the top match, which is what
+        // type-and-return is asking for.
+        const target = options[searchSelection >= 0 ? searchSelection : 0];
+        if (target) focusPerson(target.dataset.id);
+    }
+});
+
+searchResults.addEventListener('click', (e) => {
+    const li = e.target.closest('li[data-id]');
+    if (li) focusPerson(li.dataset.id);
+});
+
+searchClear.addEventListener('click', () => { clearSearch(); searchInput.focus(); });
+
+// Ctrl/Cmd+K to jump to the box, which is where everyone's hands already go.
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        if (document.getElementById('search-panel').style.display === 'none') return;
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+    }
+});
+
+
+// =========================================
+// RE-ROOTING THE CHART
+// =========================================
+
+// The parser takes the first INDI in the file as the root, which is whoever
+// the exporting software wrote first rather than whoever is holding the file.
+// Relationship labels and the generation series are both stated relative to
+// that person, so the server has to be told as well as the chart, otherwise an
+// export would disagree with the screen.
+
+async function focusPerson(personId) {
+    const person = allNodes[personId];
+    if (!person) return;
+
+    try {
+        const response = await fetch('/api/root/' + encodeURIComponent(personId),
+            { method: 'POST' });
+        if (!response.ok) {
+            showError(await describeFailure(response));
+            if (response.status === 409) sessionExpired();
+            return;
+        }
+    } catch (err) {
+        console.error(err);
+        showError("Could not reach the server. Is it still running?");
+        return;
+    }
+
+    currentRootId = personId;
+    rootData = buildAncestorHierarchy(personId);
+    update(null);
+    updateRootNote();
+    clearSearch();
+
+    // Close the summary if the re-root was triggered from inside it, so the
+    // redrawn chart is actually visible.
+    document.getElementById('summary-modal').style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function updateRootNote() {
+    const note = document.getElementById('root-note');
+    if (!note) return;
+
+    const person = allNodes[currentRootId];
+    if (!person) { note.innerHTML = ''; return; }
+
+    note.innerHTML = 'Drawn from <strong>' +
+        esc(cleanName(person.name) || 'Unknown') + '</strong>. ' +
+        'Relationships and exports are stated relative to them.';
+}
+
+document.getElementById('btn-set-root').addEventListener('click', () => {
+    if (currentSummaryPerson) focusPerson(currentSummaryPerson.id);
+});
+
+
+// =========================================
+// TREE STATISTICS
+// =========================================
+
+function renderStats(data) {
+    const people = Object.values(allNodes);
+
+    const families = (data.nodes || []).filter(n => n.type === 'family').length;
+
+    const surnames = new Set();
+    for (const p of people) {
+        // A surname needs at least one letter to count. Unknown surnames come
+        // through as "?" and counting those as a distinct family name both
+        // inflates the figure and reads as a mistake.
+        const surname = (p.surname || '').trim();
+        if (/\p{L}/u.test(surname)) surnames.add(surname.toLowerCase());
+    }
+
+    // Widest dated range in the file. Scanning every event rather than just
+    // births and deaths, because a census or a residence is often the only
+    // dated thing on someone.
+    let earliest = null, latest = null;
+    const thisYear = new Date().getFullYear();
+    for (const p of people) {
+        const dates = [p.birthDate, p.deathDate].concat(
+            (p.events || []).map(e => e.date));
+        for (const d of dates) {
+            const m = String(d || '').match(/\d{4}/);
+            if (!m) continue;
+            const year = parseInt(m[0], 10);
+            // Guard against a typo'd or placeholder year dragging the range out
+            // to something silly like 0001 or 9999.
+            if (year < 1000 || year > thisYear) continue;
+            if (earliest === null || year < earliest) earliest = year;
+            if (latest === null || year > latest) latest = year;
+        }
+    }
+
+    document.getElementById('stat-indi').textContent = people.length;
+    document.getElementById('stat-fam').textContent = families;
+    document.getElementById('stat-surnames').textContent = surnames.size;
+    document.getElementById('stat-span').textContent =
+        (earliest && latest) ? earliest + '–' + latest : '—';
+}
+
+
+// =========================================
+// KEYBOARD: CLOSING THE SUMMARY
+// =========================================
+
+// The timemap overlay has its own Escape handler that guards on being open, so
+// this one guards the same way round and the two never both fire.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('summary-modal');
+    if (!modal || modal.style.display === 'none' || !modal.style.display) return;
+    modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
 });

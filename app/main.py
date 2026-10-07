@@ -13,6 +13,14 @@ from . import ratelimit
 from .sessions import COOKIE_NAME, SESSION_TTL_SECONDS, store
 from app.services.pdf_generator import (
     generate_a2_pdf, generate_generation_zip, generate_map_pdf)
+from app.services.timeline import build_timeline
+
+# The coastline the year map is drawn on. Small enough (7 KB) to hand to the
+# browser whole rather than reaching for a tile server, which would mean an API
+# key, an outbound dependency and someone else's logs of where this family came
+# from.
+BASEMAP_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'services', 'uk.json')
 
 # Paths are resolved against this file, not the working directory, so the app
 # runs the same from a container, a service manager or run.bat.
@@ -178,6 +186,32 @@ def forget_session(request: Request, response: Response):
     return {"status": "cleared"}
 
 
+@app.post("/api/root/{person_id}")
+def set_root(request: Request, person_id: str):
+    """Make someone else the person the tree is drawn from.
+
+    The parser picks the first INDI in the file as the root, which is whoever
+    the exporting software happened to write first and often not the person
+    holding the file. Relationship labels and the generation series are both
+    stated relative to the root, so this has to be set server side rather than
+    only in the browser, otherwise an export would disagree with the screen.
+
+    Scoped to the caller's own parser instance, so changing it affects nobody
+    else's session.
+    """
+    parser = require_tree(request)
+
+    person = parser.get_person(person_id)
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    parser.root_id = person_id
+    return {
+        "root_id": person_id,
+        "name": person.get('name', '').replace('/', '').strip(),
+    }
+
+
 # The export endpoints below are sync on purpose. ReportLab is CPU bound and
 # geocoding is blocking network work, so declared `async def` they would hold
 # the event loop and stall every other visitor. As plain `def`, FastAPI runs
@@ -236,6 +270,46 @@ def export_generations(request: Request, person_id: str):
         headers={"Content-Disposition":
                  content_disposition(f"{safe_name}_Generational_Series.zip")}
     )
+
+
+@app.get("/api/map/basemap")
+def map_basemap():
+    """The GB and Ireland coastline, as GeoJSON.
+
+    Static and public: it carries no session data, so it is cacheable and needs
+    no tree loaded.
+    """
+    return FileResponse(
+        BASEMAP_PATH,
+        media_type="application/geo+json",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@app.get("/api/map/timeline")
+def map_timeline(request: Request):
+    """Everyone's dated whereabouts, for the year slider.
+
+    Cheap compared to the PDF exports: it reads the geocode cache rather than
+    the geocoder, so it is limited alongside the ordinary exports rather than
+    against the hourly map budget, which exists to protect Nominatim quota.
+    """
+    enforce(ratelimit.exports, request)
+    parser = require_tree(request)
+
+    all_people = list(parser.individuals.values())
+    if not all_people:
+        raise HTTPException(
+            status_code=400,
+            detail="No data loaded. Please upload a GEDCOM file first.")
+
+    payload = build_timeline(all_people)
+    if not payload['span']:
+        raise HTTPException(
+            status_code=422,
+            detail="No dated places in this tree, so there is nothing to plot "
+                   "over time.")
+    return payload
 
 
 @app.get("/api/export/map")

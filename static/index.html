@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gedcom Viz</title>
-    <link rel="stylesheet" href="/static/style.css?v=15">
+    <link rel="stylesheet" href="/static/style.css?v=18">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap"
@@ -27,14 +27,32 @@
                 </label>
             </div>
 
-            <div class="control-group" id="stats-panel" style="display: none;">
-                <label>Statistics</label>
-                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="color: var(--text-secondary);">Individuals</span>
-                        <span id="stat-indi" style="font-weight: 600;">0</span>
-                    </div>
+            <!-- Hidden until a tree is loaded: searching nothing is just a
+                 dead box, and the sidebar is short enough to notice one. -->
+            <div class="control-group" id="search-panel" style="display: none;">
+                <label for="person-search">Find a Person</label>
+                <div class="search-wrap">
+                    <input type="search" id="person-search" placeholder="Search by name"
+                        autocomplete="off" role="combobox" aria-expanded="false"
+                        aria-controls="search-results" aria-autocomplete="list">
+                    <button id="btn-search-clear" class="search-clear" type="button"
+                        aria-label="Clear search" style="display: none;">&times;</button>
                 </div>
+                <ul id="search-results" role="listbox" aria-label="Search results"></ul>
+                <p id="search-hint" class="search-hint"></p>
+            </div>
+
+            <div class="control-group" id="stats-panel" style="display: none;">
+                <label>This Tree</label>
+                <div class="stats-box">
+                    <div class="stat-row"><span>Individuals</span><span id="stat-indi">0</span></div>
+                    <div class="stat-row"><span>Families</span><span id="stat-fam">0</span></div>
+                    <div class="stat-row"><span>Surnames</span><span id="stat-surnames">0</span></div>
+                    <div class="stat-row"><span>Years covered</span><span id="stat-span">&mdash;</span></div>
+                </div>
+                <!-- Which person the chart is drawn from. Worth stating, because
+                     the file decides it and the file is usually wrong about it. -->
+                <p id="root-note" class="root-note"></p>
             </div>
 
             <div class="control-group" style="margin-top: auto;">
@@ -44,6 +62,8 @@
                 </p>
                 <button id="btn-reset" class="btn btn-secondary">Reset View</button>
                 <button id="btn-export" class="btn" disabled>Print / Export to PDF</button>
+                <button id="btn-timemap" class="btn" style="background-color: #2c5f8a; color: white;" disabled>Map
+                    Through Time</button>
                 <button id="btn-map" class="btn" style="background-color: #2b8a3e; color: white;" disabled>Generate Map
                     (UK)</button>
             </div>
@@ -57,6 +77,43 @@
         <div id="error-banner" role="alert" style="display: none;"></div>
     </div>
 
+    <!-- Map through time. A full screen overlay rather than a modal: the map
+         wants every pixel, and the slider below it is the point of the view. -->
+    <div id="timemap-overlay" style="display: none;">
+        <div id="timemap-header">
+            <div>
+                <h2 id="timemap-title">Map Through Time</h2>
+                <div id="timemap-note"></div>
+            </div>
+            <button id="btn-close-timemap" class="close-btn">&times;</button>
+        </div>
+
+        <div id="timemap-stage">
+            <svg id="timemap-svg"></svg>
+            <div id="timemap-readout">
+                <div id="timemap-year">&mdash;</div>
+                <div id="timemap-counts"></div>
+                <ul id="timemap-happenings"></ul>
+            </div>
+            <div id="timemap-legend">
+                <span><i class="dot dot-birth"></i>born this year</span>
+                <span><i class="dot dot-death"></i>died this year</span>
+                <span><i class="dot dot-living"></i>living here</span>
+                <span><i class="dot dot-approx"></i>approximate date</span>
+            </div>
+        </div>
+
+        <div id="timemap-controls">
+            <button id="btn-timemap-play" class="btn" aria-label="Play">&#9654; Play</button>
+            <input id="timemap-slider" type="range" min="0" max="100" value="0" step="1"
+                   aria-label="Year">
+            <div id="timemap-scale"></div>
+            <label id="timemap-trails-label">
+                <input type="checkbox" id="timemap-trails" checked> Trails
+            </label>
+        </div>
+    </div>
+
     <!-- Life Summary Modal -->
     <div id="summary-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
@@ -65,6 +122,7 @@
                 <!-- Content injected via JS -->
             </div>
             <div class="modal-actions">
+                <button id="btn-set-root" class="btn btn-secondary">Start Tree From Here</button>
                 <button id="btn-print-summary" class="btn">Print Summary</button>
                 <button id="btn-export-pdf" class="btn" style="background-color: #aa4444; color: white;">Export A2
                     PDF</button>
@@ -127,7 +185,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="/static/script.js?v=19"></script>
+    <script src="/static/script.js?v=21"></script>
+    <script src="/static/timemap.js?v=3"></script>
 </body>
 
 </html>

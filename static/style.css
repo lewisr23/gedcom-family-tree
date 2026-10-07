@@ -34,6 +34,11 @@ html {
 /* Sidebar - Left Panel */
 #sidebar {
     width: 300px;
+    flex-shrink: 0;
+    /* The search results make this stack variable height, and the body itself
+       does not scroll, so without this the export buttons become unreachable
+       on a short window. */
+    overflow-y: auto;
     background-color: rgba(255, 255, 255, 0.4);
     /* Glassy parchment */
     border-right: 1px solid var(--node-stroke);
@@ -776,4 +781,414 @@ body.preview-active #export-preview-controls {
 
 @media print {
     #error-banner { display: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Map through time
+
+   A full screen layer rather than a modal. The map wants the pixels and the
+   slider under it is the whole point of the view, so it gets its own stage
+   instead of being squeezed into the summary modal's parchment sheet.
+--------------------------------------------------------------------------- */
+
+#timemap-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: var(--bg-color);
+    display: flex;
+    flex-direction: column;
+}
+
+#timemap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 18px 28px 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#timemap-title {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: 0.06em;
+}
+
+#timemap-note {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    margin-top: 4px;
+}
+
+#timemap-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+#timemap-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Sea and land. Muted on purpose: the pins carry the information and a
+   saturated basemap would compete with them. */
+.timemap-sea {
+    fill: #dce8ef;
+}
+
+.timemap-land {
+    fill: #efe4cc;
+    stroke: #b9a98a;
+    stroke-width: 0.8;
+}
+
+.timemap-trail {
+    fill: none;
+    stroke: #8a7b5f;
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    opacity: 0.45;
+}
+
+.timemap-pin {
+    stroke: #ffffff;
+    stroke-width: 1.2;
+    cursor: pointer;
+}
+
+.timemap-pin.living {
+    fill: #4a6fa5;
+}
+
+.timemap-pin.birth {
+    fill: #4c9a2a;
+}
+
+.timemap-pin.death {
+    fill: #bf616a;
+}
+
+/* An approximate date is a guess, so the pin says so rather than sitting there
+   looking as certain as a registered birth. */
+.timemap-pin.approx {
+    stroke-dasharray: 2 2;
+    opacity: 0.75;
+}
+
+.timemap-pin-count {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    fill: #ffffff;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.timemap-pin-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    fill: #3b3222;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: rgba(240, 223, 190, 0.9);
+    stroke-width: 3px;
+}
+
+#timemap-readout {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    padding: 12px 16px;
+    min-width: 210px;
+    max-width: 280px;
+    pointer-events: none;
+}
+
+#timemap-year {
+    font-size: 40px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+#timemap-counts {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
+#timemap-happenings {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    max-height: 220px;
+    overflow: hidden;
+}
+
+#timemap-happenings li {
+    margin-bottom: 3px;
+    line-height: 1.35;
+}
+
+#timemap-happenings .ev-birth {
+    color: #3d7a22;
+}
+
+#timemap-happenings .ev-death {
+    color: #a24a52;
+}
+
+#timemap-happenings .ev-move {
+    color: #4a4a4a;
+}
+
+#timemap-legend {
+    position: absolute;
+    bottom: 14px;
+    left: 16px;
+    display: flex;
+    gap: 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.75);
+    padding: 7px 12px;
+    border: 1px solid var(--border-color);
+}
+
+#timemap-legend .dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    border: 1px solid #fff;
+}
+
+.dot-birth {
+    background: #4c9a2a;
+}
+
+.dot-death {
+    background: #bf616a;
+}
+
+.dot-living {
+    background: #4a6fa5;
+}
+
+.dot-approx {
+    background: #4a6fa5;
+    opacity: 0.6;
+    border-style: dashed;
+}
+
+#timemap-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 28px 18px;
+    border-top: 1px solid var(--border-color);
+}
+
+#timemap-slider {
+    flex: 1;
+    accent-color: #2c5f8a;
+    cursor: pointer;
+}
+
+#btn-timemap-play {
+    min-width: 104px;
+}
+
+#timemap-scale {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 108px;
+    text-align: right;
+}
+
+#timemap-trails-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+    user-select: none;
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+   Find a person, and the tree summary
+
+   Squared edges, 3px rules and the serif face, to sit with the rest of the
+   sidebar rather than looking like a widget dropped into it.
+   --------------------------------------------------------------------------- */
+
+.search-wrap {
+    position: relative;
+    display: flex;
+}
+
+#person-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 34px 10px 12px;
+    font-family: 'Cormorant SC', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.45);
+    border: 3px solid var(--node-stroke);
+    border-radius: 0;
+}
+
+#person-search::placeholder {
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+#person-search:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.75);
+    box-shadow: inset 0 0 0 1px var(--node-stroke);
+}
+
+/* Sits inside the field. Only rendered once there is something to clear. */
+.search-clear {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    padding: 0 4px;
+    line-height: 1;
+    font-size: 1.3rem;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.search-clear:hover {
+    color: var(--text-primary);
+}
+
+#search-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    /* Capped so a common surname cannot push the rest of the sidebar out of
+       reach on its own. */
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#search-results:not(:empty) {
+    margin-top: 8px;
+    border: 3px solid var(--node-stroke);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+#search-results li {
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#search-results li:last-child {
+    border-bottom: none;
+}
+
+/* Hover and keyboard selection share one look, so arrowing down the list
+   feels the same as running the mouse over it. */
+#search-results li:hover,
+#search-results li[aria-selected="true"] {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.result-name {
+    display: block;
+    font-weight: 700;
+    font-size: 0.98rem;
+}
+
+.result-meta {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+/* The matched run of characters, so it is obvious why a row is in the list. */
+.result-name mark {
+    background: rgba(0, 0, 0, 0.16);
+    color: inherit;
+    padding: 0 1px;
+}
+
+.search-hint {
+    margin: 6px 0 0;
+    font-size: 0.78rem;
+    font-style: italic;
+    color: var(--text-secondary);
+    min-height: 1em;
+}
+
+.stats-box {
+    border: 3px solid var(--node-stroke);
+    background: rgba(255, 255, 255, 0.4);
+    padding: 10px 12px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 0.95rem;
+}
+
+.stat-row span:first-child {
+    color: var(--text-secondary);
+}
+
+.stat-row span:last-child {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.root-note {
+    margin: 8px 0 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    font-style: italic;
+    color: var(--text-secondary);
+}
+
+.root-note strong {
+    font-style: normal;
+    color: var(--text-primary);
+}
+
+/* The node the chart is currently drawn from, so re-rooting is visibly a
+   thing that happened rather than the tree silently changing shape. */
+.node-card.is-root {
+    stroke-width: 6px;
+}
+
+@media print {
+
+    #search-panel,
+    #search-results {
+        display: none !important;
+    }
 }
